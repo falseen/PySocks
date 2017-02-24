@@ -52,12 +52,6 @@ Modifications made by Anorov (https://github.com/Anorov)
 -Various small bug fixes
 """
 
-# the proxy type. SOCKS5 SOCKS4 HTTP
-PROXY_TYPE = SOCKS5
-PROXY_ADDR = "127.0.0.1"
-PROXY_PORT = 1080
-
-
 __version__ = "1.6.6"
 
 import sys
@@ -70,7 +64,6 @@ sys.path.pop(0)
 
 # import real socket
 import socket
-
 sys.path.insert(0, path)
 
 import socket
@@ -85,6 +78,16 @@ from collections import Callable
 from base64 import b64encode
 
 
+PROXY_TYPE_SOCKS4 = SOCKS4 = 1
+PROXY_TYPE_SOCKS5 = SOCKS5 = 2
+PROXY_TYPE_HTTP = HTTP = 3
+
+# the proxy type. SOCKS5 SOCKS4 HTTP
+PROXY_TYPE = SOCKS5
+PROXY_ADDR = "127.0.0.1"
+PROXY_PORT = 1080
+
+
 if os.name == "nt" and sys.version_info < (3, 0):
     try:
         import win_inet_pton
@@ -92,9 +95,6 @@ if os.name == "nt" and sys.version_info < (3, 0):
         raise ImportError(
             "To run PySocks on Windows you must install win_inet_pton")
 
-PROXY_TYPE_SOCKS4 = SOCKS4 = 1
-PROXY_TYPE_SOCKS5 = SOCKS5 = 2
-PROXY_TYPE_HTTP = HTTP = 3
 
 PROXY_TYPES = {"SOCKS4": SOCKS4, "SOCKS5": SOCKS5, "HTTP": HTTP}
 PRINTABLE_PROXY_TYPES = dict(zip(PROXY_TYPES.values(), PROXY_TYPES.keys()))
@@ -399,6 +399,8 @@ class socksocket(_BaseSocket):
         proxy_type, proxy_addr, proxy_port, rdns, username, password = self.proxy
         if not proxy_type or self.type != socket.SOCK_DGRAM:
             return _orig_socket.bind(self, *pos, **kw)
+        elif self.proxy[0] == HTTP:
+            return _orig_socket.bind(self, *pos, **kw)
 
         if self._proxyconn:
             raise socket.error(EINVAL, "Socket already bound to an address")
@@ -429,7 +431,7 @@ class socksocket(_BaseSocket):
         self.proxy_sockname = ("0.0.0.0", 0)  # Unknown
 
     def sendto(self, bytes, *args, **kwargs):
-        if self.type != socket.SOCK_DGRAM:
+        if self.type != socket.SOCK_DGRAM or self.proxy[0] == HTTP:
             return super(socksocket, self).sendto(bytes, *args, **kwargs)
         if not self._proxyconn:
             self.bind(("", 0))
@@ -449,13 +451,13 @@ class socksocket(_BaseSocket):
         return sent - header.tell()
 
     def send(self, bytes, flags=0, **kwargs):
-        if self.type == socket.SOCK_DGRAM:
+        if self.type == socket.SOCK_DGRAM and self.proxy[0] != HTTP:
             return self.sendto(bytes, flags, self.proxy_peername, **kwargs)
         else:
             return super(socksocket, self).send(bytes, flags, **kwargs)
 
     def recvfrom(self, bufsize, flags=0):
-        if self.type != socket.SOCK_DGRAM:
+        if self.type != socket.SOCK_DGRAM or self.proxy[0] == HTTP :
             return super(socksocket, self).recvfrom(bufsize, flags)
         if not self._proxyconn:
             self.bind(("", 0))
@@ -886,14 +888,14 @@ class socksocket(_BaseSocket):
 set_default_proxy(PROXY_TYPE, PROXY_ADDR, PROXY_PORT)
 socket.socket = socksocket
 
+
 # hook shadowsocks's code remove the dns req
-
-
 def new_resolve(self,  hostname, callback):
     callback((hostname, hostname), None)
 
 modules_list = ["shadowsocks.common", "shadowsocks.shell"]
 for x in modules_list:
     del sys.modules[x]
+
 import shadowsocks.asyncdns
 shadowsocks.asyncdns.DNSResolver.resolve = new_resolve
