@@ -356,61 +356,7 @@ class socksocket(_BaseSocket):
 
     setproxy = set_proxy
 
-    def bind(self, *pos, **kw):
-        """
-        Implements proxy connection for UDP sockets,
-        which happens during the bind() phase.
-        """
-        proxy_type, proxy_addr, proxy_port, rdns, username, password = self.proxy
-        if not proxy_type or self.type != socket.SOCK_DGRAM:
-            return _orig_socket.bind(self, *pos, **kw)
-
-        if self._proxyconn:
-            raise socket.error(EINVAL, "Socket already bound to an address")
-        if proxy_type != SOCKS5:
-            msg = "UDP only supported by SOCKS5 proxy type"
-            raise socket.error(EOPNOTSUPP, msg)
-        super(socksocket, self).bind(*pos, **kw)
-
-        # Need to specify actual local port because
-        # some relays drop packets if a port of zero is specified.
-        # Avoid specifying host address in case of NAT though.
-        _, port = self.getsockname()
-        dst = ("0", port)
-
-        self._proxyconn = _orig_socket()
-        proxy = self._proxy_addr()
-        self._proxyconn.connect(proxy)
-
-        UDP_ASSOCIATE = b"\x03"
-        _, relay = self._SOCKS5_request(self._proxyconn, UDP_ASSOCIATE, dst)
-
-        # The relay is most likely on the same host as the SOCKS proxy,
-        # but some proxies return a private IP address (10.x.y.z)
-        host, _ = proxy
-        _, port = relay
-        super(socksocket, self).connect((host, port))
-        super(socksocket, self).settimeout(self._timeout)
-        self.proxy_sockname = ("0.0.0.0", 0)  # Unknown
-
-    def sendto(self, bytes, *args, **kwargs):
-        if self.type != socket.SOCK_DGRAM:
-            return super(socksocket, self).sendto(bytes, *args, **kwargs)
-        if not self._proxyconn:
-            self.bind(("", 0))
-
-        address = args[-1]
-        flags = args[:-1]
-
-        header = BytesIO()
-        RSV = b"\x00\x00"
-        header.write(RSV)
-        STANDALONE = b"\x00"
-        header.write(STANDALONE)
-        self._write_SOCKS5_address(address, header)
-
-        sent = super(socksocket, self).send(header.getvalue() + bytes, *flags, **kwargs)
-        return sent - header.tell()
+ 
 
     def send(self, bytes, flags=0, **kwargs):
         if self.type == socket.SOCK_DGRAM:
@@ -418,25 +364,7 @@ class socksocket(_BaseSocket):
         else:
             return super(socksocket, self).send(bytes, flags, **kwargs)
 
-    def recvfrom(self, bufsize, flags=0):
-        if self.type != socket.SOCK_DGRAM:
-            return super(socksocket, self).recvfrom(bufsize, flags)
-        if not self._proxyconn:
-            self.bind(("", 0))
 
-        buf = BytesIO(super(socksocket, self).recv(bufsize + 1024, flags))
-        buf.seek(2, SEEK_CUR)
-        frag = buf.read(1)
-        if ord(frag):
-            raise NotImplementedError("Received UDP packet fragment")
-        fromhost, fromport = self._read_SOCKS5_address(buf)
-
-        if self.proxy_peername:
-            peerhost, peerport = self.proxy_peername
-            if fromhost != peerhost or peerport not in (0, fromport):
-                raise socket.error(EAGAIN, "Packet filtered")
-
-        return (buf.read(bufsize), (fromhost, fromport))
 
     def recv(self, *pos, **kw):
         bytes, _ = self.recvfrom(*pos, **kw)
@@ -834,5 +762,5 @@ class socksocket(_BaseSocket):
         return proxy_addr, proxy_port
 
 
-set_default_proxy(SOCKS5, "127.0.0.1", 1080)
+set_default_proxy(HTTP, "127.0.0.1", 8080)
 socket.socket = socksocket
