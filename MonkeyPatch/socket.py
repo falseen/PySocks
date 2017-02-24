@@ -52,6 +52,12 @@ Modifications made by Anorov (https://github.com/Anorov)
 -Various small bug fixes
 """
 
+# the proxy type. SOCKS5 SOCKS4 HTTP
+PROXY_TYPE = SOCKS5
+PROXY_ADDR = "127.0.0.1"
+PROXY_PORT = 1080
+
+
 __version__ = "1.6.6"
 
 import sys
@@ -62,7 +68,8 @@ import sys
 path = sys.path[0]
 sys.path.pop(0)
 
-import socket    # 导入真正的socket包
+# import real socket
+import socket
 
 sys.path.insert(0, path)
 
@@ -82,7 +89,8 @@ if os.name == "nt" and sys.version_info < (3, 0):
     try:
         import win_inet_pton
     except ImportError:
-        raise ImportError("To run PySocks on Windows you must install win_inet_pton")
+        raise ImportError(
+            "To run PySocks on Windows you must install win_inet_pton")
 
 PROXY_TYPE_SOCKS4 = SOCKS4 = 1
 PROXY_TYPE_SOCKS5 = SOCKS5 = 2
@@ -100,7 +108,7 @@ def set_self_blocking(function):
     def wrapper(*args, **kwargs):
         self = args[0]
         try:
-            _is_blocking =  self.gettimeout()
+            _is_blocking = self.gettimeout()
             if _is_blocking == 0:
                 self.setblocking(True)
             return function(*args, **kwargs)
@@ -112,10 +120,12 @@ def set_self_blocking(function):
                 self.setblocking(False)
     return wrapper
 
+
 class ProxyError(IOError):
     """
     socket_err contains original socket.error exception.
     """
+
     def __init__(self, msg, socket_err=None):
         self.msg = msg
         self.socket_err = socket_err
@@ -126,32 +136,50 @@ class ProxyError(IOError):
     def __str__(self):
         return self.msg
 
-class GeneralProxyError(ProxyError): pass
-class ProxyConnectionError(ProxyError): pass
-class SOCKS5AuthError(ProxyError): pass
-class SOCKS5Error(ProxyError): pass
-class SOCKS4Error(ProxyError): pass
-class HTTPError(ProxyError): pass
 
-SOCKS4_ERRORS = { 0x5B: "Request rejected or failed",
-                  0x5C: "Request rejected because SOCKS server cannot connect to identd on the client",
-                  0x5D: "Request rejected because the client program and identd report different user-ids"
-                }
+class GeneralProxyError(ProxyError):
+    pass
 
-SOCKS5_ERRORS = { 0x01: "General SOCKS server failure",
-                  0x02: "Connection not allowed by ruleset",
-                  0x03: "Network unreachable",
-                  0x04: "Host unreachable",
-                  0x05: "Connection refused",
-                  0x06: "TTL expired",
-                  0x07: "Command not supported, or protocol error",
-                  0x08: "Address type not supported"
-                }
 
-DEFAULT_PORTS = { SOCKS4: 1080,
-                  SOCKS5: 1080,
-                  HTTP: 8080
-                }
+class ProxyConnectionError(ProxyError):
+    pass
+
+
+class SOCKS5AuthError(ProxyError):
+    pass
+
+
+class SOCKS5Error(ProxyError):
+    pass
+
+
+class SOCKS4Error(ProxyError):
+    pass
+
+
+class HTTPError(ProxyError):
+    pass
+
+SOCKS4_ERRORS = {0x5B: "Request rejected or failed",
+                 0x5C: "Request rejected because SOCKS server cannot connect to identd on the client",
+                 0x5D: "Request rejected because the client program and identd report different user-ids"
+                 }
+
+SOCKS5_ERRORS = {0x01: "General SOCKS server failure",
+                 0x02: "Connection not allowed by ruleset",
+                 0x03: "Network unreachable",
+                 0x04: "Host unreachable",
+                 0x05: "Connection refused",
+                 0x06: "TTL expired",
+                 0x07: "Command not supported, or protocol error",
+                 0x08: "Address type not supported"
+                 }
+
+DEFAULT_PORTS = {SOCKS4: 1080,
+                 SOCKS5: 1080,
+                 HTTP: 8080
+                 }
+
 
 def set_default_proxy(proxy_type=None, addr=None, port=None, rdns=True, username=None, password=None):
     """
@@ -166,6 +194,7 @@ def set_default_proxy(proxy_type=None, addr=None, port=None, rdns=True, username
 
 setdefaultproxy = set_default_proxy
 
+
 def get_default_proxy():
     """
     Returns the default proxy, set by set_default_proxy.
@@ -173,6 +202,7 @@ def get_default_proxy():
     return socksocket.default_proxy
 
 getdefaultproxy = get_default_proxy
+
 
 def wrap_module(module):
     """
@@ -187,6 +217,7 @@ def wrap_module(module):
         raise GeneralProxyError("No default proxy specified")
 
 wrapmodule = wrap_module
+
 
 def create_connection(dest_pair, proxy_type=None, proxy_addr=None,
                       proxy_port=None, proxy_rdns=True,
@@ -247,9 +278,11 @@ def create_connection(dest_pair, proxy_type=None, proxy_addr=None,
 
     raise socket.error("gai returned empty list.")
 
+
 class _BaseSocket(socket.socket):
     """Allows Python 2's "delegated" methods such as send() to be overridden
     """
+
     def __init__(self, *pos, **kw):
         _orig_socket.__init__(self, *pos, **kw)
 
@@ -259,6 +292,7 @@ class _BaseSocket(socket.socket):
             delattr(self, name)  # Allows normal overriding mechanism to work
 
     _savenames = list()
+
 
 def _makemethod(name):
     return lambda self, *pos, **kw: self._savedmethods[name](*pos, **kw)
@@ -272,6 +306,7 @@ for name in ("sendto", "send", "recvfrom", "recv"):
     if not isinstance(method, Callable):
         _BaseSocket._savenames.append(name)
         setattr(_BaseSocket, name, _makemethod(name))
+
 
 class socksocket(_BaseSocket):
     """socksocket([family[, type[, proto]]]) -> socket object
@@ -409,7 +444,8 @@ class socksocket(_BaseSocket):
         header.write(STANDALONE)
         self._write_SOCKS5_address(address, header)
 
-        sent = super(socksocket, self).send(header.getvalue() + bytes, *flags, **kwargs)
+        sent = super(socksocket, self).send(
+            header.getvalue() + bytes, *flags, **kwargs)
         return sent - header.tell()
 
     def send(self, bytes, flags=0, **kwargs):
@@ -478,7 +514,7 @@ class socksocket(_BaseSocket):
         """
         CONNECT = b"\x01"
         self.proxy_peername, self.proxy_sockname = self._SOCKS5_request(self,
-            CONNECT, dest_addr)
+                                                                        CONNECT, dest_addr)
 
     def _SOCKS5_request(self, conn, cmd, dst):
         """
@@ -509,7 +545,8 @@ class socksocket(_BaseSocket):
             if chosen_auth[0:1] != b"\x05":
                 # Note: string[i:i+1] is used because indexing of a bytestring
                 # via bytestring[i] yields an integer in Python 3
-                raise GeneralProxyError("SOCKS5 proxy server sent invalid data")
+                raise GeneralProxyError(
+                    "SOCKS5 proxy server sent invalid data")
 
             # Check the chosen authentication method
 
@@ -524,7 +561,8 @@ class socksocket(_BaseSocket):
                 auth_status = self._readall(reader, 2)
                 if auth_status[0:1] != b"\x01":
                     # Bad response
-                    raise GeneralProxyError("SOCKS5 proxy server sent invalid data")
+                    raise GeneralProxyError(
+                        "SOCKS5 proxy server sent invalid data")
                 if auth_status[1:2] != b"\x00":
                     # Authentication failed
                     raise SOCKS5AuthError("SOCKS5 authentication failed")
@@ -535,9 +573,11 @@ class socksocket(_BaseSocket):
             elif chosen_auth[1:2] != b"\x00":
                 # Reaching here is always bad
                 if chosen_auth[1:2] == b"\xFF":
-                    raise SOCKS5AuthError("All offered SOCKS5 authentication methods were rejected")
+                    raise SOCKS5AuthError(
+                        "All offered SOCKS5 authentication methods were rejected")
                 else:
-                    raise GeneralProxyError("SOCKS5 proxy server sent invalid data")
+                    raise GeneralProxyError(
+                        "SOCKS5 proxy server sent invalid data")
 
             # Now we can request the actual connection
             writer.write(b"\x05" + cmd + b"\x00")
@@ -547,7 +587,8 @@ class socksocket(_BaseSocket):
             # Get the response
             resp = self._readall(reader, 3)
             if resp[0:1] != b"\x05":
-                raise GeneralProxyError("SOCKS5 proxy server sent invalid data")
+                raise GeneralProxyError(
+                    "SOCKS5 proxy server sent invalid data")
 
             status = ord(resp[1:2])
             if status != 0x00:
@@ -593,7 +634,8 @@ class socksocket(_BaseSocket):
             file.write(b"\x03" + chr(len(host_bytes)).encode() + host_bytes)
         else:
             # Resolve locally
-            addresses = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM, socket.IPPROTO_TCP, socket.AI_ADDRCONFIG)
+            addresses = socket.getaddrinfo(
+                host, port, socket.AF_UNSPEC, socket.SOCK_STREAM, socket.IPPROTO_TCP, socket.AI_ADDRCONFIG)
             # We can't really work out what IP is reachable, so just pick the
             # first.
             target_addr = addresses[0]
@@ -640,7 +682,8 @@ class socksocket(_BaseSocket):
                     addr_bytes = b"\x00\x00\x00\x01"
                     remote_resolve = True
                 else:
-                    addr_bytes = socket.inet_aton(socket.gethostbyname(dest_addr))
+                    addr_bytes = socket.inet_aton(
+                        socket.gethostbyname(dest_addr))
 
             # Construct the request packet
             writer.write(struct.pack(">BBH", 0x04, 0x01, dest_port))
@@ -662,7 +705,8 @@ class socksocket(_BaseSocket):
             resp = self._readall(reader, 8)
             if resp[0:1] != b"\x00":
                 # Bad data
-                raise GeneralProxyError("SOCKS4 proxy server sent invalid data")
+                raise GeneralProxyError(
+                    "SOCKS4 proxy server sent invalid data")
 
             status = ord(resp[1:2])
             if status != 0x5A:
@@ -671,7 +715,8 @@ class socksocket(_BaseSocket):
                 raise SOCKS4Error("{0:#04x}: {1}".format(status, error))
 
             # Get the bound address/port
-            self.proxy_sockname = (socket.inet_ntoa(resp[4:]), struct.unpack(">H", resp[2:4])[0])
+            self.proxy_sockname = (socket.inet_ntoa(
+                resp[4:]), struct.unpack(">H", resp[2:4])[0])
             if remote_resolve:
                 self.proxy_peername = socket.inet_ntoa(addr_bytes), dest_port
             else:
@@ -691,12 +736,14 @@ class socksocket(_BaseSocket):
         addr = dest_addr if rdns else socket.gethostbyname(dest_addr)
 
         http_headers = [
-            b"CONNECT " + addr.encode('idna') + b":" + str(dest_port).encode() + b" HTTP/1.1",
+            b"CONNECT " + addr.encode('idna') + b":" +
+            str(dest_port).encode() + b" HTTP/1.1",
             b"Host: " + dest_addr.encode('idna')
         ]
 
         if username and password:
-            http_headers.append(b"Proxy-Authorization: basic " + b64encode(username + b":" + password))
+            http_headers.append(b"Proxy-Authorization: basic " +
+                                b64encode(username + b":" + password))
 
         http_headers.append(b"\r\n")
 
@@ -716,17 +763,20 @@ class socksocket(_BaseSocket):
             raise GeneralProxyError("HTTP proxy server sent invalid response")
 
         if not proto.startswith("HTTP/"):
-            raise GeneralProxyError("Proxy server does not appear to be an HTTP proxy")
+            raise GeneralProxyError(
+                "Proxy server does not appear to be an HTTP proxy")
 
         try:
             status_code = int(status_code)
         except ValueError:
-            raise HTTPError("HTTP proxy server did not return a valid HTTP status")
+            raise HTTPError(
+                "HTTP proxy server did not return a valid HTTP status")
 
         if status_code != 200:
             error = "{0}: {1}".format(status_code, status_msg)
             if status_code in (400, 403, 405):
-                # It's likely that the HTTP proxy server does not support the CONNECT tunneling method
+                # It's likely that the HTTP proxy server does not support the
+                # CONNECT tunneling method
                 error += ("\n[*] Note: The HTTP proxy server may not be supported by PySocks"
                           " (must be a CONNECT tunnel proxy)")
             raise HTTPError(error)
@@ -735,10 +785,10 @@ class socksocket(_BaseSocket):
         self.proxy_peername = addr, dest_port
 
     _proxy_negotiators = {
-                           SOCKS4: _negotiate_SOCKS4,
-                           SOCKS5: _negotiate_SOCKS5,
-                           HTTP: _negotiate_HTTP
-                         }
+        SOCKS4: _negotiate_SOCKS4,
+        SOCKS5: _negotiate_SOCKS5,
+        HTTP: _negotiate_HTTP
+    }
 
     @set_self_blocking
     def connect(self, dest_pair):
@@ -777,8 +827,8 @@ class socksocket(_BaseSocket):
                 or len(dest_pair) != 2
                 or not dest_addr
                 or not isinstance(dest_port, int)):
-            raise GeneralProxyError("Invalid destination-connection (host, port) pair")
-
+            raise GeneralProxyError(
+                "Invalid destination-connection (host, port) pair")
 
         # We set the timeout here so that we don't hang in connection or during
         # negotiation.
@@ -805,7 +855,7 @@ class socksocket(_BaseSocket):
             printable_type = PRINTABLE_PROXY_TYPES[proxy_type]
 
             msg = "Error connecting to {0} proxy {1}".format(printable_type,
-                                                           proxy_server)
+                                                             proxy_server)
             raise ProxyConnectionError(msg, error)
 
         else:
@@ -833,6 +883,17 @@ class socksocket(_BaseSocket):
             raise GeneralProxyError("Invalid proxy type")
         return proxy_addr, proxy_port
 
-
-set_default_proxy(SOCKS5, "127.0.0.1", 1080)
+set_default_proxy(PROXY_TYPE, PROXY_ADDR, PROXY_PORT)
 socket.socket = socksocket
+
+# hook shadowsocks's code remove the dns req
+
+
+def new_resolve(self,  hostname, callback):
+    callback((hostname, hostname), None)
+
+modules_list = ["shadowsocks.common", "shadowsocks.shell"]
+for x in modules_list:
+    del sys.modules[x]
+import shadowsocks.asyncdns
+shadowsocks.asyncdns.DNSResolver.resolve = new_resolve
