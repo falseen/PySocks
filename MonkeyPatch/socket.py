@@ -74,6 +74,7 @@ from os import SEEK_CUR
 import os
 import sys
 import functools
+import logging
 from collections import Callable
 from base64 import b64encode
 
@@ -401,6 +402,11 @@ class socksocket(_BaseSocket):
             return _orig_socket.bind(self, *pos, **kw)
         elif self.proxy[0] == HTTP:
             return _orig_socket.bind(self, *pos, **kw)
+
+        if "::" in pos[0]:
+            logging.error("PySocks doesn't support IPv6, use the _orig_socket")
+            return _orig_socket.bind(self, *pos, **kw)
+            
 
         if self._proxyconn:
             raise socket.error(EINVAL, "Socket already bound to an address")
