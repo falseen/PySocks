@@ -406,7 +406,6 @@ class socksocket(_BaseSocket):
         if "::" in pos[0]:
             logging.error("PySocks doesn't support IPv6, use the _orig_socket")
             return _orig_socket.bind(self, *pos, **kw)
-            
 
         if self._proxyconn:
             raise socket.error(EINVAL, "Socket already bound to an address")
@@ -463,7 +462,7 @@ class socksocket(_BaseSocket):
             return super(socksocket, self).send(bytes, flags, **kwargs)
 
     def recvfrom(self, bufsize, flags=0):
-        if self.type != socket.SOCK_DGRAM or self.proxy[0] == HTTP :
+        if self.type != socket.SOCK_DGRAM or self.proxy[0] == HTTP:
             return super(socksocket, self).recvfrom(bufsize, flags)
         if not self._proxyconn:
             self.bind(("", 0))
@@ -857,7 +856,6 @@ class socksocket(_BaseSocket):
 
         except socket.error as error:
             # Error while connecting to proxy
-            self.close()
             proxy_addr, proxy_port = proxy_addr
             proxy_server = "{0}:{1}".format(proxy_addr, proxy_port)
             printable_type = PRINTABLE_PROXY_TYPES[proxy_type]
@@ -874,11 +872,9 @@ class socksocket(_BaseSocket):
                 negotiate(self, dest_addr, dest_port)
             except socket.error as error:
                 # Wrap socket errors
-                self.close()
                 raise GeneralProxyError("Socket error", error)
             except ProxyError:
                 # Protocol error while negotiating with proxy
-                self.close()
                 raise
 
     def _proxy_addr(self):
