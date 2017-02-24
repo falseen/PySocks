@@ -834,5 +834,5 @@ class socksocket(_BaseSocket):
         return proxy_addr, proxy_port
 
 
-set_default_proxy(SOCKS5, "127.0.0.1")
+set_default_proxy(SOCKS5, "127.0.0.1", 1080)
 socket.socket = socksocket
